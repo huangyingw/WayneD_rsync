@@ -3,6 +3,7 @@ SCRIPT=$(realpath "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
 cd "$SCRIPTPATH"
 
+apt-get update -y
 apt install -y \
     acl \
     attr \
