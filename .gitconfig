@@ -9,8 +9,6 @@
 [gsync]
     remote = WayneD
     branch = master
-[merge]
-    allow = true
 [branch "dev"]
     remote = origin
     merge = refs/heads/dev
@@ -19,6 +17,3 @@
     merge = refs/heads/master
 [gdif]
     ignore = *.gdio.diff
-[deploy]
-	host = localhost
-	path = ~/myproject/git/linux/WayneD/rsync
