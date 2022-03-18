@@ -3,7 +3,7 @@ SCRIPT=$(realpath "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
 cd "$SCRIPTPATH"
 
-# ./install_prerequisite.sh
+./install_prerequisite.sh
 
 if [ "$EUID" -ne 0 ]
 then
