@@ -5,4 +5,4 @@ cd "$SCRIPTPATH"
 
 ./configure
 make
-sudo make install
+make install
