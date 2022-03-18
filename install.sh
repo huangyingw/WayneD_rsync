@@ -3,18 +3,11 @@ SCRIPT=$(realpath "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
 cd "$SCRIPTPATH"
 
-apt install -y \
-    acl \
-    attr \
-    autoconf \
-    automake \
-    g++ \
-    gawk \
-    gcc \
-    libacl1-dev \
-    libattr1-dev \
-    liblz4-dev \
-    libssl-dev \
-    libxxhash-dev \
-    libzstd-dev \
-    python3-cmarkgfm
+# ./install_prerequisite.sh
+
+if [ "$EUID" -ne 0 ]
+then
+    sudo ./do_install.sh
+else
+    ./do_install.sh
+fi
