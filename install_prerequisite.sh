@@ -19,4 +19,11 @@ apt install -y \
     libzstd-dev \
     python3-cmarkgfm
 
+brew install \
+    automake \
+    lz4 \
+    openssl \
+    xxhash \
+    zstd
+
 python3 -mpip install --user commonmark
