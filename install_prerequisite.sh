@@ -18,3 +18,5 @@ apt install -y \
     libxxhash-dev \
     libzstd-dev \
     python3-cmarkgfm
+
+python3 -mpip install --user commonmark
