@@ -1,6 +1,6 @@
 #!/bin/bash
 
-./install.sh
+./do_install.sh
 
 while true
 do
