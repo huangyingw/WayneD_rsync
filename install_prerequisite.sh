@@ -1,7 +1,14 @@
-#!/bin/zsh
+#!/bin/bash
 SCRIPT=$(realpath "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
 cd "$SCRIPTPATH"
+
+brew install \
+    automake \
+    lz4 \
+    openssl \
+    xxhash \
+    zstd
 
 apt-get update -y
 apt install -y \
@@ -20,11 +27,4 @@ apt install -y \
     libzstd-dev \
     python3-cmarkgfm
 
-brew install \
-    automake \
-    lz4 \
-    openssl \
-    xxhash \
-    zstd
-
-python3 -mpip install --user commonmark
+python3 -mpip install --user commonmark || true
