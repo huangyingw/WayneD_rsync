@@ -1,10 +1,10 @@
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND noninteractive
-WORKDIR /root/neovim
+WORKDIR /root/rsync
 
-COPY ./*.sh /root/neovim/
+COPY ./*.sh /root/rsync/
 
-RUN /root/neovim/install_prerequisite.sh
+RUN /root/rsync/install_prerequisite.sh
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
