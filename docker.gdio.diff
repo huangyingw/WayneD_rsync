@@ -1,0 +1,9 @@
+diff --git a/.gitignore b/.gitignore
+index 9e59c9c4..5f6e6956 100644
+--- ./.gitignore
++++ ./.gitignore
+@@ -58,3 +58,4 @@ aclocal.m4
+ /auto-build-save
+ .deps
+ /*.exe
++var/
