@@ -19,12 +19,14 @@ apt install -y \
     g++ \
     gawk \
     gcc \
+    git \
     libacl1-dev \
     libattr1-dev \
     liblz4-dev \
     libssl-dev \
     libxxhash-dev \
     libzstd-dev \
+    make \
     python3-cmarkgfm
 
 python3 -mpip install --user commonmark || true
