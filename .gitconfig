@@ -8,7 +8,7 @@
     remote = origin
 [gsync]
     remote = WayneD
-    branch = master
+    target = WayneD/master
 [branch "dev"]
     remote = origin
     merge = refs/heads/dev
