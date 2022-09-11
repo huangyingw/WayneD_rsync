@@ -1,0 +1,12 @@
+version: '2.1'
+
+services:
+    neovim:
+        build:
+            context: . 
+            dockerfile: Dockerfile
+        image: huangyingw/rsync
+        volumes:
+            - ./:/root/rsync
+            - ./var/logs/:/var/logs/
+        command: /bin/sh -c "/root/rsync/entrypoint.sh 2>&1 | tee /var/logs/containner.log"
