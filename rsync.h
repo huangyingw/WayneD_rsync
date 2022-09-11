@@ -2,7 +2,7 @@
  * Copyright (C) 1996, 2000 Andrew Tridgell
  * Copyright (C) 1996 Paul Mackerras
  * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
- * Copyright (C) 2003-2020 Wayne Davison
+ * Copyright (C) 2003-2022 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -109,7 +109,7 @@
 			     == ((unsigned)(b2) & (unsigned)(mask)))
 
 /* Update this if you make incompatible changes and ALSO update the
- * SUBPROTOCOL_VERSION if it is not a final (offical) release. */
+ * SUBPROTOCOL_VERSION if it is not a final (official) release. */
 #define PROTOCOL_VERSION 31
 
 /* This is used when working on a new protocol version or for any unofficial
@@ -338,6 +338,9 @@ enum delret {
 # endif
 # include <string.h>
 #endif
+#ifdef HAVE_BSD_STRING_H
+# include <bsd/string.h>
+#endif
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
 #endif
@@ -491,7 +494,6 @@ enum delret {
 #ifndef __TANDEM
 #define MAKEDEV(devmajor,devminor) makedev(devmajor,devminor)
 #else
-# include <sys/stat.h>
 # define major DEV_TO_MAJOR
 # define minor DEV_TO_MINOR
 # define MAKEDEV MAJORMINOR_TO_DEV
@@ -583,11 +585,11 @@ typedef unsigned int size_t;
 #endif
 #endif
 
-#ifndef __APPLE__ /* Do we need a configure check for this? */
+#if !defined __APPLE__ || defined HAVE_GETATTRLIST
 #define SUPPORT_ATIMES 1
 #endif
 
-#ifdef HAVE_GETATTRLIST
+#if defined HAVE_GETATTRLIST || defined __CYGWIN__
 #define SUPPORT_CRTIMES 1
 #endif
 
@@ -779,6 +781,11 @@ struct ht_int64_node {
 
 #if defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
 #define USE_FLEXIBLE_ARRAY 1
+#define SIZE_T_FMT_MOD "z" /* printf supports %zd */
+#define SIZE_T_FMT_CAST size_t
+#else
+#define SIZE_T_FMT_MOD "l" /* printf supports %ld */
+#define SIZE_T_FMT_CAST long
 #endif
 
 union file_extras {
@@ -819,6 +826,7 @@ extern int uid_ndx;
 extern int gid_ndx;
 extern int acls_ndx;
 extern int xattrs_ndx;
+extern int file_sum_len;
 
 #ifdef USE_FLEXIBLE_ARRAY
 #define FILE_STRUCT_LEN (sizeof (struct file_struct))
@@ -829,7 +837,7 @@ extern int xattrs_ndx;
 #define DEV_EXTRA_CNT 2
 #define DIRNODE_EXTRA_CNT 3
 #define EXTRA64_CNT ((sizeof (union file_extras64) + EXTRA_LEN - 1) / EXTRA_LEN)
-#define SUM_EXTRA_CNT ((MAX_DIGEST_LEN + EXTRA_LEN - 1) / EXTRA_LEN)
+#define SUM_EXTRA_CNT ((file_sum_len + EXTRA_LEN - 1) / EXTRA_LEN)
 
 #define REQ_EXTRA(f,ndx) ((union file_extras*)(f) - (ndx))
 #define OPT_EXTRA(f,bump) ((union file_extras*)(f) - file_extra_cnt - 1 - (bump))
@@ -917,8 +925,9 @@ extern int xattrs_ndx;
  * Start the flist array at FLIST_START entries and grow it
  * by doubling until FLIST_LINEAR then grow by FLIST_LINEAR
  */
-#define FLIST_START	(32 * 1024)
-#define FLIST_LINEAR	(FLIST_START * 512)
+#define FLIST_START		(32)
+#define FLIST_START_LARGE	(32 * 1024)
+#define FLIST_LINEAR		(FLIST_START_LARGE * 512)
 
 /*
  * Extent size for allocation pools: A minimum size of 128KB
@@ -1154,18 +1163,22 @@ typedef struct {
 #define NSTR_COMPRESS 1
 
 struct name_num_item {
-	int num;
-	const char *name, *main_name;
+	int num, flags;
+	const char *name;
+	struct name_num_item *main_nni;
 };
 
 struct name_num_obj {
 	const char *type;
-	const char *negotiated_name;
+	struct name_num_item *negotiated_nni;
 	uchar *saw;
 	int saw_len;
-	int negotiated_num;
-	struct name_num_item list[10]; /* we'll get a compile error/warning if this is ever too small */
+	struct name_num_item *list;
 };
+
+#ifdef EXTERNAL_ZLIB
+#define read_buf read_buf_
+#endif
 
 #ifndef __cplusplus
 #include "proto.h"
@@ -1325,10 +1338,6 @@ extern int errno;
 #define IS_SPECIAL(mode) (S_ISSOCK(mode) || S_ISFIFO(mode))
 #define IS_DEVICE(mode) (S_ISCHR(mode) || S_ISBLK(mode))
 
-#define PRESERVE_FILE_TIMES	(1<<0)
-#define PRESERVE_DIR_TIMES	(1<<1)
-#define PRESERVE_LINK_TIMES	(1<<2)
-
 /* Initial mask on permissions given to temporary files.  Mask off setuid
      bits and group access because of potential race-condition security
      holes, and mask other access because mode 707 is bizarre */
@@ -1418,7 +1427,8 @@ extern short info_levels[], debug_levels[];
 #define INFO_MISC (INFO_FLIST+1)
 #define INFO_MOUNT (INFO_MISC+1)
 #define INFO_NAME (INFO_MOUNT+1)
-#define INFO_PROGRESS (INFO_NAME+1)
+#define INFO_NONREG (INFO_NAME+1)
+#define INFO_PROGRESS (INFO_NONREG+1)
 #define INFO_REMOVE (INFO_PROGRESS+1)
 #define INFO_SKIP (INFO_REMOVE+1)
 #define INFO_STATS (INFO_SKIP+1)
@@ -1473,3 +1483,9 @@ const char *get_panic_action(void);
     fprintf(stderr, "%s in %s at line %d\n", msg, __FILE__, __LINE__); \
     exit_cleanup(RERR_UNSUPPORTED); \
 } while (0)
+
+#ifdef HAVE_MALLINFO2
+#define MEM_ALLOC_INFO mallinfo2
+#elif defined HAVE_MALLINFO
+#define MEM_ALLOC_INFO mallinfo
+#endif

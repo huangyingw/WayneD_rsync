@@ -3,7 +3,7 @@
  *
  * Copyright (C) 1998-2001 Andrew Tridgell <tridge@samba.org>
  * Copyright (C) 2001-2002 Martin Pool <mbp@samba.org>
- * Copyright (C) 2002-2020 Wayne Davison
+ * Copyright (C) 2002-2022 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,6 +47,7 @@ extern int protocol_version;
 extern int io_timeout;
 extern int no_detach;
 extern int write_batch;
+extern int old_style_args;
 extern int default_af_hint;
 extern int logfile_format_has_i;
 extern int logfile_format_has_o_or_i;
@@ -66,6 +67,7 @@ extern uid_t our_uid;
 extern gid_t our_gid;
 
 char *auth_user;
+char *daemon_auth_choices;
 int read_only = 0;
 int module_id = -1;
 int pid_file_fd = -1;
@@ -148,13 +150,9 @@ int start_socket_client(char *host, int remote_argc, char *remote_argv[],
 static int exchange_protocols(int f_in, int f_out, char *buf, size_t bufsiz, int am_client)
 {
 	int remote_sub = -1;
-#if SUBPROTOCOL_VERSION != 0
-	int our_sub = protocol_version < PROTOCOL_VERSION ? 0 : SUBPROTOCOL_VERSION;
-#else
-	int our_sub = 0;
-#endif
+	int our_sub = get_subprotocol_version();
 
-	io_printf(f_out, "@RSYNCD: %d.%d\n", protocol_version, our_sub);
+	output_daemon_greeting(f_out, am_client);
 	if (!am_client) {
 		char *motd = lp_motd_file();
 		if (motd && *motd) {
@@ -186,14 +184,28 @@ static int exchange_protocols(int f_in, int f_out, char *buf, size_t bufsiz, int
 	}
 
 	if (remote_sub < 0) {
-		if (remote_protocol == 30) {
+		if (remote_protocol >= 30) {
 			if (am_client)
-				rprintf(FERROR, "rsync: server is speaking an incompatible beta of protocol 30\n");
+				rprintf(FERROR, "rsync: the server omitted the subprotocol value: %s\n", buf);
 			else
-				io_printf(f_out, "@ERROR: your client is speaking an incompatible beta of protocol 30\n");
+				io_printf(f_out, "@ERROR: your client omitted the subprotocol value: %s\n", buf);
 			return -1;
 		}
 		remote_sub = 0;
+	}
+
+	daemon_auth_choices = strchr(buf + 9, ' ');
+	if (daemon_auth_choices) {
+		char *cp;
+		daemon_auth_choices = strdup(daemon_auth_choices + 1);
+		if ((cp = strchr(daemon_auth_choices, '\n')) != NULL)
+			*cp = '\0';
+	} else if (remote_protocol > 31) {
+		if (am_client)
+			rprintf(FERROR, "rsync: the server omitted the digest name list: %s\n", buf);
+		else
+			io_printf(f_out, "@ERROR: your client omitted the digest name list: %s\n", buf);
+		return -1;
 	}
 
 	if (protocol_version > remote_protocol) {
@@ -288,20 +300,45 @@ int start_inband_exchange(int f_in, int f_out, const char *user, int argc, char 
 
 	sargs[sargc++] = ".";
 
+	if (!old_style_args)
+		snprintf(line, sizeof line, " %.*s/", modlen, modname);
+
 	while (argc > 0) {
 		if (sargc >= MAX_ARGS - 1) {
 		  arg_overflow:
 			rprintf(FERROR, "internal: args[] overflowed in do_cmd()\n");
 			exit_cleanup(RERR_SYNTAX);
 		}
-		if (strncmp(*argv, modname, modlen) == 0
-		 && argv[0][modlen] == '\0')
+		if (strncmp(*argv, modname, modlen) == 0 && argv[0][modlen] == '\0')
 			sargs[sargc++] = modname; /* we send "modname/" */
-		else if (**argv == '-') {
-			if (asprintf(sargs + sargc++, "./%s", *argv) < 0)
-				out_of_memory("start_inband_exchange");
-		} else
-			sargs[sargc++] = *argv;
+		else {
+			char *arg = *argv;
+			int extra_chars = *arg == '-' ? 2 : 0; /* a leading dash needs a "./" prefix. */
+			/* If --old-args was not specified, make sure that the arg won't split at a mod name! */
+			if (!old_style_args && (p = strstr(arg, line)) != NULL) {
+				do {
+					extra_chars += 2;
+				} while ((p = strstr(p+1, line)) != NULL);
+			}
+			if (extra_chars) {
+				char *f = arg;
+				char *t = arg = new_array(char, strlen(arg) + extra_chars + 1);
+				if (*f == '-') {
+					*t++ = '.';
+					*t++ = '/';
+				}
+				while (*f) {
+					if (*f == ' ' && strncmp(f, line, modlen+2) == 0) {
+						*t++ = '[';
+						*t++ = *f++;
+						*t++ = ']';
+					} else
+						*t++ = *f++;
+				}
+				*t = '\0';
+			}
+			sargs[sargc++] = arg;
+		}
 		argv++;
 		argc--;
 	}
@@ -355,7 +392,7 @@ int start_inband_exchange(int f_in, int f_out, const char *user, int argc, char 
 
 	if (rl_nulls) {
 		for (i = 0; i < sargc; i++) {
-			if (!sargs[i]) /* stop at --protect-args NULL */
+			if (!sargs[i]) /* stop at --secluded-args NULL */
 				break;
 			write_sbuf(f_out, sargs[i]);
 			write_byte(f_out, 0);
@@ -403,7 +440,7 @@ static int read_arg_from_pipe(int fd, char *buf, int limit)
 }
 #endif
 
-static void set_env_str(const char *var, const char *str)
+void set_env_str(const char *var, const char *str)
 {
 #ifdef HAVE_SETENV
 	if (setenv(var, str, 1) < 0)

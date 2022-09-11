@@ -4,7 +4,7 @@
  * Copyright (C) 1996-2001 Andrew Tridgell <tridge@samba.org>
  * Copyright (C) 1996 Paul Mackerras
  * Copyright (C) 2002 Martin Pool
- * Copyright (C) 2003-2020 Wayne Davison
+ * Copyright (C) 2003-2022 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,16 +25,21 @@
 
 extern int am_server;
 extern int am_sender;
+extern int am_generator;
 extern int eol_nulls;
 extern int io_error;
+extern int xfer_dirs;
+extern int recurse;
 extern int local_server;
 extern int prune_empty_dirs;
 extern int ignore_perishable;
+extern int relative_paths;
 extern int delete_mode;
 extern int delete_excluded;
 extern int cvs_exclude;
 extern int sanitize_paths;
 extern int protocol_version;
+extern int trust_sender_args;
 extern int module_id;
 
 extern char curr_dir[MAXPATHLEN];
@@ -44,8 +49,11 @@ extern unsigned int module_dirlen;
 filter_rule_list filter_list = { .debug_type = "" };
 filter_rule_list cvs_filter_list = { .debug_type = " [global CVS]" };
 filter_rule_list daemon_filter_list = { .debug_type = " [daemon]" };
+filter_rule_list implied_filter_list = { .debug_type = " [implied]" };
 
 int saw_xattr_filter = 0;
+int trust_sender_args = 0;
+int trust_sender_filter = 0;
 
 /* Need room enough for ":MODS " prefix plus some room to grow. */
 #define MAX_RULE_PREFIX (16)
@@ -152,13 +160,17 @@ static void add_rule(filter_rule_list *listp, const char *pat, unsigned int pat_
 {
 	const char *cp;
 	unsigned int pre_len, suf_len, slash_cnt = 0;
+	char *mention_rule_suffix;
 
-	if (DEBUG_GTE(FILTER, 2)) {
-		rprintf(FINFO, "[%s] add_rule(%s%.*s%s)%s\n",
+	if (DEBUG_GTE(FILTER, 1) && pat_len && (pat[pat_len-1] == ' ' || pat[pat_len-1] == '\t'))
+		mention_rule_suffix = " -- CAUTION: trailing whitespace!";
+	else
+		mention_rule_suffix = DEBUG_GTE(FILTER, 2) ? "" : NULL;
+	if (mention_rule_suffix) {
+		rprintf(FINFO, "[%s] add_rule(%s%.*s%s)%s%s\n",
 			who_am_i(), get_rule_prefix(rule, pat, 0, NULL),
-			(int)pat_len, pat,
-			(rule->rflags & FILTRULE_DIRECTORY) ? "/" : "",
-			listp->debug_type);
+			(int)pat_len, pat, (rule->rflags & FILTRULE_DIRECTORY) ? "/" : "",
+			listp->debug_type, mention_rule_suffix);
 	}
 
 	/* These flags also indicate that we're reading a list that
@@ -285,6 +297,269 @@ static void add_rule(filter_rule_list *listp, const char *pat, unsigned int pat_
 		rule->next = listp->tail->next;
 		listp->tail->next = rule;
 		listp->tail = rule;
+	}
+}
+
+/* If the wildcards failed, the remote shell might give us a file matching the literal
+ * wildcards.  Since "*" & "?" already match themselves, this just needs to deal with
+ * failed "[foo]" idioms.
+ */
+static void maybe_add_literal_brackets_rule(filter_rule const *based_on, int arg_len)
+{
+	filter_rule *rule;
+	const char *arg = based_on->pattern, *cp;
+	char *p;
+	int cnt = 0;
+
+	if (arg_len < 0)
+		arg_len = strlen(arg);
+
+	for (cp = arg; *cp; cp++) {
+		if (*cp == '\\' && cp[1]) {
+			cp++;
+		} else if (*cp == '[')
+			cnt++;
+	}
+	if (!cnt)
+		return;
+
+	rule = new0(filter_rule);
+	rule->rflags = based_on->rflags;
+	rule->u.slash_cnt = based_on->u.slash_cnt;
+	p = rule->pattern = new_array(char, arg_len + cnt + 1);
+	for (cp = arg; *cp; ) {
+		if (*cp == '\\' && cp[1]) {
+			*p++ = *cp++;
+		} else if (*cp == '[')
+			*p++ = '\\';
+		*p++ = *cp++;
+	}
+	*p++ = '\0';
+
+	rule->next = implied_filter_list.head;
+	implied_filter_list.head = rule;
+	if (DEBUG_GTE(FILTER, 3)) {
+		rprintf(FINFO, "[%s] add_implied_include(%s%s)\n", who_am_i(), rule->pattern,
+			rule->rflags & FILTRULE_DIRECTORY ? "/" : "");
+	}
+}
+
+static char *partial_string_buf = NULL;
+static int partial_string_len = 0;
+void implied_include_partial_string(const char *s_start, const char *s_end)
+{
+	partial_string_len = s_end - s_start;
+	if (partial_string_len <= 0 || partial_string_len >= MAXPATHLEN) { /* too-large should be impossible... */
+		partial_string_len = 0;
+		return;
+	}
+	if (!partial_string_buf)
+		partial_string_buf = new_array(char, MAXPATHLEN);
+	memcpy(partial_string_buf, s_start, partial_string_len);
+}
+
+void free_implied_include_partial_string()
+{
+	if (partial_string_buf) {
+		if (partial_string_len)
+			add_implied_include("", 0);
+		free(partial_string_buf);
+		partial_string_buf = NULL;
+	}
+	partial_string_len = 0; /* paranoia */
+}
+
+/* Each arg the client sends to the remote sender turns into an implied include
+ * that the receiver uses to validate the file list from the sender. */
+void add_implied_include(const char *arg, int skip_daemon_module)
+{
+	int arg_len, saw_wild = 0, saw_live_open_brkt = 0, backslash_cnt = 0;
+	int slash_cnt = 0;
+	const char *cp;
+	char *p;
+	if (trust_sender_args)
+		return;
+	if (partial_string_len) {
+		arg_len = strlen(arg);
+		if (partial_string_len + arg_len >= MAXPATHLEN) {
+			partial_string_len = 0;
+			return; /* Should be impossible... */
+		}
+		memcpy(partial_string_buf + partial_string_len, arg, arg_len + 1);
+		partial_string_len = 0;
+		arg = partial_string_buf;
+	}
+	if (skip_daemon_module) {
+		if ((cp = strchr(arg, '/')) != NULL)
+			arg = cp + 1;
+		else
+			arg = "";
+	}
+	if (relative_paths) {
+		if ((cp = strstr(arg, "/./")) != NULL)
+			arg = cp + 3;
+	} else if ((cp = strrchr(arg, '/')) != NULL) {
+		arg = cp + 1;
+	}
+	if (*arg == '.' && arg[1] == '\0')
+		arg++;
+	arg_len = strlen(arg);
+	if (arg_len) {
+		char *new_pat;
+		if (strpbrk(arg, "*[?")) {
+			/* We need to add room to escape backslashes if wildcard chars are present. */
+			for (cp = arg; (cp = strchr(cp, '\\')) != NULL; cp++)
+				arg_len++;
+			saw_wild = 1;
+		}
+		arg_len++; /* Leave room for the prefixed slash */
+		p = new_pat = new_array(char, arg_len + 1);
+		*p++ = '/';
+		slash_cnt++;
+		for (cp = arg; *cp; ) {
+			switch (*cp) {
+			  case '\\':
+				if (cp[1] == ']') {
+					if (!saw_wild)
+						cp++; /* A \] in a non-wild filter causes a problem, so drop the \ . */
+				} else if (!strchr("*[?", cp[1])) {
+					backslash_cnt++;
+					if (saw_wild)
+						*p++ = '\\';
+				}
+				*p++ = *cp++;
+				break;
+			  case '/':
+				if (p[-1] == '/') { /* This is safe because of the initial slash. */
+					if (*++cp == '\0') {
+						slash_cnt--;
+						p--;
+					}
+				} else if (cp[1] == '\0') {
+					cp++;
+				} else {
+					slash_cnt++;
+					*p++ = *cp++;
+				}
+				break;
+			  case '.':
+				if (p[-1] == '/') {
+					if (cp[1] == '/') {
+						cp += 2;
+						if (!*cp) {
+							slash_cnt--;
+							p--;
+						}
+					} else if (cp[1] == '\0') {
+						cp++;
+						slash_cnt--;
+						p--;
+					} else
+						*p++ = *cp++;
+				} else
+					*p++ = *cp++;
+				break;
+			  case '[':
+				saw_live_open_brkt = 1;
+				*p++ = *cp++;
+				break;
+			  default:
+				*p++ = *cp++;
+				break;
+			}
+		}
+		*p = '\0';
+		arg_len = p - new_pat;
+		if (!arg_len)
+			free(new_pat);
+		else {
+			filter_rule *rule = new0(filter_rule);
+			rule->rflags = FILTRULE_INCLUDE + (saw_wild ? FILTRULE_WILD : 0);
+			rule->u.slash_cnt = slash_cnt;
+			arg = rule->pattern = new_pat;
+			if (!implied_filter_list.head)
+				implied_filter_list.head = implied_filter_list.tail = rule;
+			else {
+				rule->next = implied_filter_list.head;
+				implied_filter_list.head = rule;
+			}
+			if (DEBUG_GTE(FILTER, 3))
+				rprintf(FINFO, "[%s] add_implied_include(%s)\n", who_am_i(), arg);
+			if (saw_live_open_brkt)
+				maybe_add_literal_brackets_rule(rule, arg_len);
+			if (relative_paths && slash_cnt) {
+				filter_rule const *ent;
+				int found = 0;
+				slash_cnt = 1;
+				for (p = new_pat + 1; (p = strchr(p, '/')) != NULL; p++) {
+					*p = '\0';
+					for (ent = implied_filter_list.head; ent; ent = ent->next) {
+						if (ent != rule && strcmp(ent->pattern, new_pat) == 0) {
+							found = 1;
+							break;
+						}
+					}
+					if (!found) {
+						filter_rule *R_rule = new0(filter_rule);
+						R_rule->rflags = FILTRULE_INCLUDE | FILTRULE_DIRECTORY;
+						/* Check if our sub-path has wildcards or escaped backslashes */
+						if (saw_wild && strpbrk(rule->pattern, "*[?\\"))
+							R_rule->rflags |= FILTRULE_WILD;
+						R_rule->pattern = strdup(new_pat);
+						R_rule->u.slash_cnt = slash_cnt;
+						R_rule->next = implied_filter_list.head;
+						implied_filter_list.head = R_rule;
+						if (DEBUG_GTE(FILTER, 3)) {
+							rprintf(FINFO, "[%s] add_implied_include(%s/)\n",
+								who_am_i(), R_rule->pattern);
+						}
+						if (saw_live_open_brkt)
+							maybe_add_literal_brackets_rule(R_rule, -1);
+					}
+					*p = '/';
+					slash_cnt++;
+				}
+			}
+		}
+	}
+
+	if (recurse || xfer_dirs) {
+		/* Now create a rule with an added "/" & "**" or "*" at the end */
+		filter_rule *rule = new0(filter_rule);
+		rule->rflags = FILTRULE_INCLUDE | FILTRULE_WILD;
+		if (recurse)
+			rule->rflags |= FILTRULE_WILD2;
+		/* We must leave enough room for / * * \0. */
+		if (!saw_wild && backslash_cnt) {
+			/* We are appending a wildcard, so now the backslashes need to be escaped. */
+			p = rule->pattern = new_array(char, arg_len + backslash_cnt + 3 + 1);
+			for (cp = arg; *cp; ) { /* Note that arg_len != 0 because backslash_cnt > 0 */
+				if (*cp == '\\')
+					*p++ = '\\';
+				*p++ = *cp++;
+			}
+		} else {
+			p = rule->pattern = new_array(char, arg_len + 3 + 1);
+			if (arg_len) {
+				memcpy(p, arg, arg_len);
+				p += arg_len;
+			}
+		}
+		if (p[-1] != '/') {
+			*p++ = '/';
+			slash_cnt++;
+		}
+		*p++ = '*';
+		if (recurse)
+			*p++ = '*';
+		*p = '\0';
+		rule->u.slash_cnt = slash_cnt;
+		rule->next = implied_filter_list.head;
+		implied_filter_list.head = rule;
+		if (DEBUG_GTE(FILTER, 3))
+			rprintf(FINFO, "[%s] add_implied_include(%s)\n", who_am_i(), rule->pattern);
+		if (saw_live_open_brkt)
+			maybe_add_literal_brackets_rule(rule, p - rule->pattern);
 	}
 }
 
@@ -702,11 +977,12 @@ static void report_filter_result(enum logcode code, char const *name,
 				 filter_rule const *ent,
 				 int name_flags, const char *type)
 {
+	int log_level = am_sender || am_generator ? 1 : 3;
+
 	/* If a trailing slash is present to match only directories,
 	 * then it is stripped out by add_rule().  So as a special
-	 * case we add it back in here. */
-
-	if (DEBUG_GTE(FILTER, 1)) {
+	 * case we add it back in the log output. */
+	if (DEBUG_GTE(FILTER, log_level)) {
 		static char *actions[2][2]
 		    = { {"show", "hid"}, {"risk", "protect"} };
 		const char *w = who_am_i();
@@ -714,7 +990,7 @@ static void report_filter_result(enum logcode code, char const *name,
 			      : name_flags & NAME_IS_DIR ? "directory"
 			      : "file";
 		rprintf(code, "[%s] %sing %s %s because of pattern %s%s%s\n",
-		    w, actions[*w!='s'][!(ent->rflags & FILTRULE_INCLUDE)],
+		    w, actions[*w=='g'][!(ent->rflags & FILTRULE_INCLUDE)],
 		    t, name, ent->pattern,
 		    ent->rflags & FILTRULE_DIRECTORY ? "/" : "", type);
 	}
@@ -886,6 +1162,7 @@ static filter_rule *parse_rule_tok(const char **rulestr_ptr,
 		}
 		switch (ch) {
 		case ':':
+			trust_sender_filter = 1;
 			rule->rflags |= FILTRULE_PERDIR_MERGE
 				      | FILTRULE_FINISH_SETUP;
 			/* FALL THROUGH */

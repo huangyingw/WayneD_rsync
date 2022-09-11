@@ -2,7 +2,7 @@
  * Trivial ls for comparing two directories after running an rsync.
  *
  * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
- * Copyright (C) 2003-2020 Wayne Davison
+ * Copyright (C) 2003-2022 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -160,7 +160,7 @@ static void list_file(const char *fname)
 	if (do_lstat(fname, &buf) < 0)
 		failed("stat", fname);
 #ifdef SUPPORT_CRTIMES
-	if (display_crtimes && (crtime = get_create_time(fname)) == 0)
+	if (display_crtimes && (crtime = get_create_time(fname, &buf)) == 0)
 		failed("get_create_time", fname);
 #endif
 #ifdef SUPPORT_XATTRS
