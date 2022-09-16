@@ -1,0 +1,47 @@
+diff --git a/.gitignore b/.gitignore
+index 9e59c9c4..5f6e6956 100644
+--- ./.gitignore
++++ ./.gitignore
+@@ -58,3 +58,4 @@ aclocal.m4
+ /auto-build-save
+ .deps
+ /*.exe
++var/
+diff --git a/NEWS.md b/NEWS.md
+index ec9201e1..fe962ad0 100644
+--- ./NEWS.md
++++ ./NEWS.md
+@@ -4,7 +4,7 @@
+ 
+ ### BUG FIXES:
+ 
+-- When rsync gets and unpack error on an ACL, mention the filename.
++- ...
+ 
+ ### ENHANCEMENTS:
+ 
+diff --git a/acls.c b/acls.c
+index 3cf12eeb..12e662cf 100644
+--- ./acls.c
++++ ./acls.c
+@@ -519,7 +519,6 @@ static int get_rsync_acl(const char *fname, rsync_acl *racl,
+ 
+ 		sys_acl_free_acl(sacl);
+ 		if (!ok) {
+-			rsyserr(FERROR_XFER, errno, "get_acl: unpack_smb_acl(%s)", fname);
+ 			return -1;
+ 		}
+ 	} else if (no_acl_syscall_error(errno)) {
+diff --git a/md-convert b/md-convert
+index a48689a7..46543c38 100755
+--- ./md-convert
++++ ./md-convert
+@@ -204,8 +204,6 @@ def find_man_substitutions():
+     mtime = 0
+ 
+     git_dir = srcdir + '.git'
+-    if os.path.lexists(git_dir):
+-        mtime = int(subprocess.check_output(['git', '--git-dir', git_dir, 'log', '-1', '--format=%at']))
+ 
+     # Allow "prefix" to be overridden via the environment:
+     env_subs['prefix'] = os.environ.get('RSYNC_OVERRIDE_PREFIX', None)
