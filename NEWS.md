@@ -4,18 +4,23 @@
 
 ### BUG FIXES:
 
-- ...
+- Fixed the validating of remote filter rules.
+
+- When rsync gets an unpack error on an ACL, mention the filename.
 
 ### ENHANCEMENTS:
 
 - Added negotiated daemon-auth support that allows a stronger checksum digest
   to be used.  Added SHA512, SHA256, and SHA1 digests to MD5 & MD4.  These new
-  digests are at the highest priority in the new negotiation list.
+  digests are at the highest priority in the new daemon-auth negotiation list.
 
 - Added support for SHA1, SHA256, and SHA512 digests in file checksums.  While
   this tends to be overkill, it is available if someone really needs it.  These
   overly-long checksums are at the lowest priority in the normal checksum
-  negotation list.
+  negotiation list.
+
+- Improved the xattr hash table to use a 64-bit key (which should ensure fewer
+  collisions).
 
 - If the `--version` option is repeated (e.g. `-VV`) then the information is
   output in a (still human-readable) JSON format (client side only).
@@ -24,8 +29,8 @@
   version output from any rsync.  The script accepts either text on stdin
   **or** an arg that specifies an rsync executable to run with a doubled
   `--version` option.  If the text we get isn't already in JSON format, it is
-  converted into equivalent JSON as rsync 3.2.7 would output it (though some
-  info may be missing from older versions).
+  converted. Newer rsync versions will provide more complete info than older
+  versions.
 
 ### PACKAGING RELATED:
 
@@ -37,12 +42,12 @@
   talking to an rsync prior to 3.0.0) or you can configure rsync to tell
   openssl to enable legacy algorithms (see below).
 
-- A simple openssl config file is supplied that can be optionally installed for
-  rsync to use.  If you install packaging/openssl-rsync.cnf to a public spot
-  (such as ` /etc/ssl/openssl-rsync.cnf` or similar) and then configure rsync
-  using `--with-openssl-conf=/path/name.cnf`, this will cause rsync to export
-  the configured path in the OPENSSL_CONF environment variable (when it is not
-  already set).  This will enable openssl's MD4 code for rsync to use.
+- A simple openssl config file is supplied that can be installed for rsync to
+  use.  If you install packaging/openssl-rsync.cnf to a public spot (such as
+  `/etc/ssl/openssl-rsync.cnf`) and then run configure with the option
+  `--with-openssl-conf=/path/name.cnf`, this will cause rsync to export the
+  configured path in the OPENSSL_CONF environment variable (when the variable
+  is not already set).  This will enable openssl's MD4 code for rsync to use.
 
 ------------------------------------------------------------------------------
 
