@@ -1,46 +1,80 @@
-# NEWS for rsync 3.2.7 (UNRELEASED)
+# NEWS for rsync 3.2.7 (20 Oct 2022)
 
 ## Changes in this version:
 
 ### BUG FIXES:
 
-- Fixed the validating of remote filter rules.
+- Fixed the client-side validating of the remote sender's filtering behavior.
+
+- More fixes for the "unrequested file-list name" name, including a copy of
+  "/" with `--relative` enabled and a copy with a lot of related paths with
+  `--relative` enabled (often derived from a `--files-from` list).
 
 - When rsync gets an unpack error on an ACL, mention the filename.
+
+- Avoid over-setting sanitize_paths when a daemon is serving "/" (even if
+  "use chroot" is false).
 
 ### ENHANCEMENTS:
 
 - Added negotiated daemon-auth support that allows a stronger checksum digest
-  to be used.  Added SHA512, SHA256, and SHA1 digests to MD5 & MD4.  These new
-  digests are at the highest priority in the new daemon-auth negotiation list.
+  to be used to validate a user's login to the daemon.  Added SHA512, SHA256,
+  and SHA1 digests to MD5 & MD4.  These new digests are at the highest priority
+  in the new daemon-auth negotiation list.
 
-- Added support for SHA1, SHA256, and SHA512 digests in file checksums.  While
-  this tends to be overkill, it is available if someone really needs it.  These
-  overly-long checksums are at the lowest priority in the normal checksum
-  negotiation list.
+- Added support for the SHA1 digest in file checksums.  While this tends to be
+  overkill, it is available if someone really needs it.  This overly-long
+  checksum is at the lowest priority in the normal checksum negotiation list.
+  See [`--checksum-choice`](rsync.1#opt) (`--cc`) and the `RSYNC_CHECKSUM_LIST`
+  environment var for how to customize this.
 
-- Improved the xattr hash table to use a 64-bit key (which should ensure fewer
-  collisions).
+- Improved the xattr hash table to use a 64-bit key without slowing down the
+  key's computation.  This should make extra sure that a hash collision doesn't
+  happen.
 
 - If the `--version` option is repeated (e.g. `-VV`) then the information is
-  output in a (still human-readable) JSON format (client side only).
+  output in a (still readable) JSON format.  Client side only.
 
 - The script `support/json-rsync-version` is available to get the JSON style
   version output from any rsync.  The script accepts either text on stdin
   **or** an arg that specifies an rsync executable to run with a doubled
   `--version` option.  If the text we get isn't already in JSON format, it is
-  converted. Newer rsync versions will provide more complete info than older
-  versions.
+  converted. Newer rsync versions will provide more complete json info than
+  older rsync versions. Various tweaks are made to keep the flag names
+  consistent across versions.
+
+- The [`use chroot`](rsyncd.conf.5#) daemon parameter now defaults to "unset"
+  so that rsync can use chroot when it works and a sanitized copy when chroot
+  is not supported (e.g., for a non-root daemon).  Explicitly setting the
+  parameter to true or false (on or off) behaves the same way as before.
+
+- The `--fuzzy` option was optimized a bit to try to cut down on the amount of
+  computations when considering a big pool of files. The simple heuristic from
+  Kenneth Finnegan resuled in about a 2x speedup.
+
+- If rsync is forced to use protocol 29 or before (perhaps due to talking to an
+  rsync before 3.0.0), the modify time of a file is limited to 4-bytes.  Rsync
+  now interprets this value as an unsigned integer so that a current year past
+  2038 can continue to be represented. This does mean that years prior to 1970
+  cannot be represented in an older protocol, but this trade-off seems like the
+  right choice given that (1) 2038 is very rapidly approaching, and (2) newer
+  protocols support a much wider range of old and new dates.
+
+- The rsync client now treats an empty destination arg as an error, just like
+  it does for an empty source arg. This doesn't affect a `host:` arg (which is
+  treated the same as `host:.`) since the arg is not completely empty.  The use
+  of [`--old-args`](rsync.1#opt) (including via `RSYNC_OLD_ARGS`) allows the
+  prior behavior of treating an empty destination arg as a ".".
 
 ### PACKAGING RELATED:
 
 - The checksum code now uses openssl's EVP methods, which gets rid of various
   deprecation warnings and makes it easy to support more digest methods.  On
   newer systems, the MD4 digest is marked as legacy in the openssl code, which
-  makes openssl refuse to support it via EVP.  You can just ignore this and
-  allow the included MD4 code to be used for older rsync connections (when
-  talking to an rsync prior to 3.0.0) or you can configure rsync to tell
-  openssl to enable legacy algorithms (see below).
+  makes openssl refuse to support it via EVP.  You can choose to ignore this
+  and allow rsync's MD4 code to be used for older rsync connections (when
+  talking to an rsync prior to 3.0.0) or you can choose to configure rsync to
+  tell openssl to enable legacy algorithms (see below).
 
 - A simple openssl config file is supplied that can be installed for rsync to
   use.  If you install packaging/openssl-rsync.cnf to a public spot (such as
@@ -48,6 +82,19 @@
   `--with-openssl-conf=/path/name.cnf`, this will cause rsync to export the
   configured path in the OPENSSL_CONF environment variable (when the variable
   is not already set).  This will enable openssl's MD4 code for rsync to use.
+
+- The packager may wish to include an explicit "use chroot = true" in the top
+  section of their supplied /etc/rsyncd.conf file if the daemon is being
+  installed to run as the root user (though rsync should behave the same even
+  with the value unset, a little extra paranoia doesn't hurt).
+
+- I've noticed that some packagers haven't installed support/nameconvert for
+  users to use in their chrooted rsync configs.  Even if it is not installed
+  as an executable script (to avoid a python3 dependency) it would be good to
+  install it with the other rsync-related support scripts.
+
+- It would be good to add support/json-rsync-version to the list of installed
+  support scripts.
 
 ------------------------------------------------------------------------------
 
@@ -4645,7 +4692,7 @@
 
 | RELEASE DATE | VER.   | DATE OF COMMIT\* | PROTOCOL    |
 |--------------|--------|------------------|-------------|
-| ?? Dec 2022  | 3.2.7  |                  | 31          |
+| 20 Oct 2022  | 3.2.7  |                  | 31          |
 | 09 Sep 2022  | 3.2.6  |                  | 31          |
 | 14 Aug 2022  | 3.2.5  |                  | 31          |
 | 15 Apr 2022  | 3.2.4  |                  | 31          |
