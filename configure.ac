@@ -529,21 +529,6 @@ AC_ARG_ENABLE([zstd],
         AS_HELP_STRING([--disable-zstd], [disable to omit zstd compression]))
 AH_TEMPLATE([SUPPORT_ZSTD],
 [Undefine if you do not want zstd compression.  By default this is defined.])
-if test x"$enable_zstd" != x"no"; then
-    if test x"$ac_cv_header_zstd_h" = x"yes"; then
-	AC_MSG_RESULT(yes)
-	AC_SEARCH_LIBS(ZSTD_minCLevel, zstd,
-	    [AC_DEFINE(SUPPORT_ZSTD)],
-	    [err_msg="$err_msg$nl- Failed to find ZSTD_minCLevel function in zstd lib.";
-	     no_lib="$no_lib zstd"])
-    else
-	AC_MSG_RESULT(no)
-	err_msg="$err_msg$nl- Failed to find zstd.h for zstd compression support.";
-	no_lib="$no_lib zstd"
-    fi
-else
-    AC_MSG_RESULT(no)
-fi
 
 AC_MSG_CHECKING([whether to enable LZ4 compression])
 AC_ARG_ENABLE([lz4],
