@@ -26,7 +26,9 @@ apt install -y \
     libssl-dev \
     libxxhash-dev \
     libzstd-dev \
-    make \
+    make
+
+apt install -y \
     python3-cmarkgfm
 
 python3 -mpip install --user commonmark || true
