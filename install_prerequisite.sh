@@ -10,8 +10,8 @@ brew install \
     xxhash \
     zstd
 
-apt-get update -y
-apt install -y \
+sudo apt-get update -y
+sudo apt install -y \
     acl \
     attr \
     autoconf \
@@ -28,7 +28,7 @@ apt install -y \
     libzstd-dev \
     make
 
-apt install -y \
+sudo apt install -y \
     python3-cmarkgfm
 
-python3 -mpip install --user commonmark || true
+sudo python3 -mpip install --user commonmark || true
