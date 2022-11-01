@@ -10,25 +10,13 @@ brew install \
     xxhash \
     zstd
 
-apt-get update -y
-apt install -y \
-    acl \
-    attr \
-    autoconf \
-    automake \
-    g++ \
-    gawk \
-    gcc \
-    git \
-    libacl1-dev \
-    libattr1-dev \
-    liblz4-dev \
-    libssl-dev \
-    libxxhash-dev \
-    libzstd-dev \
-    make
-
-apt install -y \
-    python3-cmarkgfm
-
+sudo apt update -y
+sudo apt install -y gcc g++ gawk autoconf automake python3-cmarkgfm
+sudo apt install -y acl libacl1-dev
+sudo apt install -y attr libattr1-dev
+sudo apt install -y libxxhash-dev
+sudo apt install -y libzstd-dev
+sudo apt install -y liblz4-dev
+sudo apt install -y libssl-dev
+sudo apt install -y python3-pip
 python3 -mpip install --user commonmark || true
