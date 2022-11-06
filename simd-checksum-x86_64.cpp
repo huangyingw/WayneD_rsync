@@ -51,12 +51,12 @@
  * GCC 4.x are not supported to ease configure.ac logic.
  */
 
-#ifdef __x86_64__
-#ifdef __cplusplus
+#ifdef __x86_64__ /* { */
+#ifdef __cplusplus /* { */
 
 #include "rsync.h"
 
-#ifdef HAVE_SIMD
+#ifdef USE_ROLL_SIMD /* { */
 
 #include <immintrin.h>
 
@@ -85,7 +85,9 @@ typedef long long __m256i_u __attribute__((__vector_size__(32), __may_alias__, _
 #define SSE2_HADDS_EPI16(a, b) _mm_adds_epi16(SSE2_INTERLEAVE_EVEN_EPI16(a, b), SSE2_INTERLEAVE_ODD_EPI16(a, b))
 #define SSE2_MADDUBS_EPI16(a, b) _mm_adds_epi16(SSE2_MULU_EVEN_EPI8(a, b), SSE2_MULU_ODD_EPI8(a, b))
 
+#ifndef USE_ROLL_ASM
 __attribute__ ((target("default"))) MVSTATIC int32 get_checksum1_avx2_64(schar* buf, int32 len, int32 i, uint32* ps1, uint32* ps2) { return i; }
+#endif
 __attribute__ ((target("default"))) MVSTATIC int32 get_checksum1_ssse3_32(schar* buf, int32 len, int32 i, uint32* ps1, uint32* ps2) { return i; }
 __attribute__ ((target("default"))) MVSTATIC int32 get_checksum1_sse2_32(schar* buf, int32 len, int32 i, uint32* ps1, uint32* ps2) { return i; }
 
@@ -311,6 +313,12 @@ __attribute__ ((target("sse2"))) MVSTATIC int32 get_checksum1_sse2_32(schar* buf
     return i;
 }
 
+#ifdef USE_ROLL_ASM /* { */
+
+extern "C" __attribute__ ((target("avx2"))) int32 get_checksum1_avx2_asm(schar* buf, int32 len, int32 i, uint32* ps1, uint32* ps2);
+
+#else /* } { */
+
 /*
   AVX2 loop per 64 bytes:
     int16 t1[16];
@@ -352,7 +360,6 @@ __attribute__ ((target("avx2"))) MVSTATIC int32 get_checksum1_avx2_64(schar* buf
 	    in8_2_high = _mm_loadu_si128((__m128i_u*)&buf[i+48]);
 	    in8_1 = _mm256_inserti128_si256(_mm256_castsi128_si256(in8_1_low), in8_1_high,1);
 	    in8_2 = _mm256_inserti128_si256(_mm256_castsi128_si256(in8_2_low), in8_2_high,1);
-            
 
             // (1*buf[i] + 1*buf[i+1]), (1*buf[i+2], 1*buf[i+3]), ... 2*[int16*8]
             // Fastest, even though multiply by 1
@@ -426,6 +433,8 @@ __attribute__ ((target("avx2"))) MVSTATIC int32 get_checksum1_avx2_64(schar* buf
     return i;
 }
 
+#endif /* } !USE_ROLL_ASM */
+
 static int32 get_checksum1_default_1(schar* buf, int32 len, int32 i, uint32* ps1, uint32* ps2)
 {
     uint32 s1 = *ps1;
@@ -452,7 +461,11 @@ static inline uint32 get_checksum1_cpp(char *buf1, int32 len)
     uint32 s2 = 0;
 
     // multiples of 64 bytes using AVX2 (if available)
+#ifdef USE_ROLL_ASM
+    i = get_checksum1_avx2_asm((schar*)buf1, len, i, &s1, &s2);
+#else
     i = get_checksum1_avx2_64((schar*)buf1, len, i, &s1, &s2);
+#endif
 
     // multiples of 32 bytes using SSSE3 (if available)
     i = get_checksum1_ssse3_32((schar*)buf1, len, i, &s1, &s2);
@@ -514,14 +527,18 @@ static int32 get_checksum1_auto(schar* buf, int32 len, int32 i, uint32* ps1, uin
 
 int main() {
     int i;
-    unsigned char* buf = (unsigned char*)malloc(BLOCK_LEN);
+    unsigned char* buf = (unsigned char*)aligned_alloc(64,BLOCK_LEN);
     for (i = 0; i < BLOCK_LEN; i++) buf[i] = (i + (i % 3) + (i % 11)) % 256;
 
     benchmark("Auto", get_checksum1_auto, (schar*)buf, BLOCK_LEN);
     benchmark("Raw-C", get_checksum1_default_1, (schar*)buf, BLOCK_LEN);
     benchmark("SSE2", get_checksum1_sse2_32, (schar*)buf, BLOCK_LEN);
     benchmark("SSSE3", get_checksum1_ssse3_32, (schar*)buf, BLOCK_LEN);
+#ifdef USE_ROLL_ASM
+    benchmark("AVX2-ASM", get_checksum1_avx2_asm, (schar*)buf, BLOCK_LEN);
+#else
     benchmark("AVX2", get_checksum1_avx2_64, (schar*)buf, BLOCK_LEN);
+#endif
 
     free(buf);
     return 0;
@@ -531,6 +548,6 @@ int main() {
 #pragma clang optimize on
 #endif /* BENCHMARK_SIMD_CHECKSUM1 */
 
-#endif /* HAVE_SIMD */
-#endif /* __cplusplus */
-#endif /* __x86_64__ */
+#endif /* } USE_ROLL_SIMD */
+#endif /* } __cplusplus */
+#endif /* } __x86_64__ */
