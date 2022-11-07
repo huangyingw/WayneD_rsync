@@ -1,6 +1,6 @@
-#! /bin/sh
+#!/bin/sh
 
-# Copyright (C) 2005-2020 Wayne Davison
+# Copyright (C) 2005-2022 Wayne Davison
 
 # This program is distributable under the terms of the GNU GPL (see
 # COPYING).
@@ -25,7 +25,7 @@ ln "$fromdir/foo/config1" "$fromdir/foo/extra"
 rm -f "$to2dir"
 
 # Check if rsync is set to hard-link symlinks.
-if $RSYNC --version | grep "[, ] hardlink-symlinks" >/dev/null; then
+if $RSYNC -VV | grep '"hardlink_symlinks": true' >/dev/null; then
     L=hL
     sym_dots="$allspace"
     L_sym_dots=".L$allspace"
@@ -45,7 +45,7 @@ case "$RSYNC" in
     T=.T
     ;;
 *)
-    if $RSYNC --version | grep "[, ] symtimes" >/dev/null; then
+    if $RSYNC -VV | grep '"symtimes": true' >/dev/null; then
 	T=.t
     else
 	T=.T
@@ -54,6 +54,7 @@ case "$RSYNC" in
 esac
 
 checkdiff "$RSYNC -iplr '$fromdir/' '$todir/'" <<EOT
+created directory $todir
 cd$all_plus ./
 cd$all_plus bar/
 cd$all_plus bar/baz/
@@ -151,6 +152,7 @@ EOT
 
 rm -rf "$to2dir"
 cat - "$chkfile.extra" <<EOT >"$chkfile"
+created directory $to2dir
 hf$allspace foo/extra => foo/config1
 EOT
 checkdiff2 "$RSYNC -iplrtH --copy-dest=../to '$fromdir/' '$to2dir/'"
@@ -184,10 +186,13 @@ $L$sym_dots foo/sym -> ../bar/baz/rsync
 EOT
 
 rm -rf "$to2dir"
-checkdiff "$RSYNC -iplrtH --dry-run --link-dest=../to '$fromdir/' '$to2dir/'" <"$chkfile.extra"
+cat - "$chkfile.extra" <<EOT >"$chkfile"
+created directory $to2dir
+EOT
+checkdiff2 "$RSYNC -iplrtH --dry-run --link-dest=../to '$fromdir/' '$to2dir/'"
 
 rm -rf "$to2dir"
-checkdiff "$RSYNC -iplrtH --link-dest=../to '$fromdir/' '$to2dir/'" <"$chkfile.extra"
+checkdiff2 "$RSYNC -iplrtH --link-dest=../to '$fromdir/' '$to2dir/'"
 
 rm -rf "$to2dir"
 checkdiff "$RSYNC -vvplrtH --link-dest='$todir' '$fromdir/' '$to2dir/'" \
@@ -218,7 +223,10 @@ $L_sym_dots foo/sym -> ../bar/baz/rsync
 EOT
 
 rm -rf "$to2dir"
-checkdiff "$RSYNC -iplrtH --compare-dest='$todir' '$fromdir/' '$to2dir/'" <"$chkfile.extra"
+cat - "$chkfile.extra" <<EOT >"$chkfile"
+created directory $to2dir
+EOT
+checkdiff2 "$RSYNC -iplrtH --compare-dest='$todir' '$fromdir/' '$to2dir/'"
 
 rm -rf "$to2dir"
 checkdiff "$RSYNC -vvplrtH --compare-dest='$todir' '$fromdir/' '$to2dir/'" \
