@@ -1,0 +1,69 @@
+diff --git a/do_install.sh b/do_install.sh
+new file mode 100755
+index 00000000..c9c59e2a
+--- /dev/null
++++ ./do_install.sh
+@@ -0,0 +1,8 @@
++#!/bin/zsh
++SCRIPT=$(realpath "$0")
++SCRIPTPATH=$(dirname "$SCRIPT")
++cd "$SCRIPTPATH"
++
++./configure && \
++    make && \
++    make install
+diff --git a/install.sh b/install.sh
+new file mode 100755
+index 00000000..424438f1
+--- /dev/null
++++ ./install.sh
+@@ -0,0 +1,13 @@
++#!/bin/zsh
++SCRIPT=$(realpath "$0")
++SCRIPTPATH=$(dirname "$SCRIPT")
++cd "$SCRIPTPATH"
++
++./install_prerequisite.sh
++
++if [ "$EUID" -ne 0 ]
++then
++    sudo ./do_install.sh
++else
++    ./do_install.sh
++fi
+diff --git a/install_prerequisite.sh b/install_prerequisite.sh
+new file mode 100755
+index 00000000..86b94e69
+--- /dev/null
++++ ./install_prerequisite.sh
+@@ -0,0 +1,30 @@
++#!/bin/zsh
++SCRIPT=$(realpath "$0")
++SCRIPTPATH=$(dirname "$SCRIPT")
++cd "$SCRIPTPATH"
++
++apt-get update -y
++apt install -y \
++    acl \
++    attr \
++    autoconf \
++    automake \
++    g++ \
++    gawk \
++    gcc \
++    libacl1-dev \
++    libattr1-dev \
++    liblz4-dev \
++    libssl-dev \
++    libxxhash-dev \
++    libzstd-dev \
++    python3-cmarkgfm
++
++brew install \
++    automake \
++    lz4 \
++    openssl \
++    xxhash \
++    zstd
++
++python3 -mpip install --user commonmark
