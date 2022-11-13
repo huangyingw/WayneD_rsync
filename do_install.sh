@@ -11,8 +11,7 @@ CPPFLAGS="-I$HOMEBREW_PREFIX/opt/openssl/include/ \
     -L$HOMEBREW_PREFIX/opt/xxhash/lib/ \
     -L$HOMEBREW_PREFIX/opt/zstd/lib/ \
     -L$HOMEBREW_PREFIX/opt/lz4/lib/"\
-    ./configure \
-    --prefix=$HOMEBREW_PREFIX && \
+    ./configure && \
     make reconfigure && \
     make && \
     sudo make install
