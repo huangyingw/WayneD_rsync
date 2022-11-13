@@ -1,9 +1,9 @@
 diff --git a/do_install.sh b/do_install.sh
 new file mode 100755
-index 00000000..79832d31
+index 00000000..d69910a1
 --- /dev/null
 +++ ./do_install.sh
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,17 @@
 +#!/bin/zsh
 +SCRIPT=$(realpath "$0")
 +SCRIPTPATH=$(dirname "$SCRIPT")
@@ -17,8 +17,7 @@ index 00000000..79832d31
 +    -L$HOMEBREW_PREFIX/opt/xxhash/lib/ \
 +    -L$HOMEBREW_PREFIX/opt/zstd/lib/ \
 +    -L$HOMEBREW_PREFIX/opt/lz4/lib/"\
-+    ./configure \
-+    --prefix=$HOMEBREW_PREFIX && \
++    ./configure && \
 +    make reconfigure && \
 +    make && \
 +    sudo make install
