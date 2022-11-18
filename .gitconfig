@@ -19,3 +19,4 @@
     ignore = *.sh
     ignore = ./Dockerfile
     ignore = ./docker-compose.yml
+    ignore = ./.gitignore
