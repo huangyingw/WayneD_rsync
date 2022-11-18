@@ -59,3 +59,4 @@ aclocal.m4
 .deps
 /*.exe
 var/
+rounding.*/
