@@ -27,4 +27,5 @@ brew install \
     xxhash \
     zstd
 
+sudo pip3 install commonmark
 python3 -mpip install --user commonmark

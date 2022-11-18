@@ -1,0 +1,73 @@
+diff --git a/do_install.sh b/do_install.sh
+new file mode 100755
+index 00000000..d69910a1
+--- /dev/null
++++ ./do_install.sh
+@@ -0,0 +1,17 @@
++#!/bin/zsh
++SCRIPT=$(realpath "$0")
++SCRIPTPATH=$(dirname "$SCRIPT")
++cd "$SCRIPTPATH"
++
++CPPFLAGS="-I$HOMEBREW_PREFIX/opt/openssl/include/ \
++    -I$HOMEBREW_PREFIX/opt/xxhash/include/ \
++    -I$HOMEBREW_PREFIX/opt/zstd/include/ \
++    -I$HOMEBREW_PREFIX/opt/lz4/include/" \
++    LDFLAGS="-L$HOMEBREW_PREFIX/opt/openssl/lib/ \
++    -L$HOMEBREW_PREFIX/opt/xxhash/lib/ \
++    -L$HOMEBREW_PREFIX/opt/zstd/lib/ \
++    -L$HOMEBREW_PREFIX/opt/lz4/lib/"\
++    ./configure && \
++    make reconfigure && \
++    make && \
++    sudo make install
+diff --git a/install.sh b/install.sh
+new file mode 100755
+index 00000000..35f5e628
+--- /dev/null
++++ ./install.sh
+@@ -0,0 +1,7 @@
++#!/bin/zsh
++SCRIPT=$(realpath "$0")
++SCRIPTPATH=$(dirname "$SCRIPT")
++cd "$SCRIPTPATH"
++
++./install_prerequisite.sh
++./do_install.sh
+diff --git a/install_prerequisite.sh b/install_prerequisite.sh
+new file mode 100755
+index 00000000..3b54fb0b
+--- /dev/null
++++ ./install_prerequisite.sh
+@@ -0,0 +1,31 @@
++#!/bin/zsh
++SCRIPT=$(realpath "$0")
++SCRIPTPATH=$(dirname "$SCRIPT")
++cd "$SCRIPTPATH"
++
++apt-get update -y
++apt install -y \
++    acl \
++    attr \
++    autoconf \
++    automake \
++    g++ \
++    gawk \
++    gcc \
++    libacl1-dev \
++    libattr1-dev \
++    liblz4-dev \
++    libssl-dev \
++    libxxhash-dev \
++    libzstd-dev \
++    python3-cmarkgfm
++
++brew install \
++    automake \
++    lz4 \
++    openssl \
++    xxhash \
++    zstd
++
++sudo pip3 install commonmark
++python3 -mpip install --user commonmark
