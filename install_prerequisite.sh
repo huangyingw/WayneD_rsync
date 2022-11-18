@@ -19,4 +19,5 @@ sudo apt install -y libzstd-dev
 sudo apt install -y liblz4-dev
 sudo apt install -y libssl-dev
 sudo apt install -y python3-pip
+sudo pip3 install commonmark
 python3 -mpip install --user commonmark || true
