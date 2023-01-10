@@ -16,5 +16,7 @@
     remote = origin
     merge = refs/heads/master
 [gdif]
-    ignore = *.gdio.diff
     ignore = ./.gitignore
+    ignore = ./do_install.sh
+    ignore = ./install.sh
+    ignore = ./install_prerequisite.sh
