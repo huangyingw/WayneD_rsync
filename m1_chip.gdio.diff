@@ -1,0 +1,13 @@
+diff --git a/md-convert b/md-convert
+index a48689a7..46543c38 100755
+--- ./md-convert
++++ ./md-convert
+@@ -204,8 +204,6 @@ def find_man_substitutions():
+     mtime = 0
+ 
+     git_dir = srcdir + '.git'
+-    if os.path.lexists(git_dir):
+-        mtime = int(subprocess.check_output(['git', '--git-dir', git_dir, 'log', '-1', '--format=%at']))
+ 
+     # Allow "prefix" to be overridden via the environment:
+     env_subs['prefix'] = os.environ.get('RSYNC_OVERRIDE_PREFIX', None)
