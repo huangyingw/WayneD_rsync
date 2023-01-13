@@ -1,7 +1,7 @@
 version: '2.1'
 
 services:
-    neovim:
+    rsync:
         build:
             context: . 
             dockerfile: Dockerfile
