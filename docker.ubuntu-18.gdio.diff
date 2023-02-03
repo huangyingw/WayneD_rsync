@@ -1,5 +1,4 @@
 diff --git a/.gitignore b/.gitignore
-index 9e59c9c4..5f6e6956 100644
 --- ./.gitignore
 +++ ./.gitignore
 @@ -58,3 +58,4 @@ aclocal.m4
@@ -8,7 +7,6 @@ index 9e59c9c4..5f6e6956 100644
  /*.exe
 +var/
 diff --git a/configure.ac b/configure.ac
-index ccad7f13..6c54c603 100644
 --- ./configure.ac
 +++ ./configure.ac
 @@ -529,21 +529,6 @@ AC_ARG_ENABLE([zstd],
@@ -34,7 +32,6 @@ index ccad7f13..6c54c603 100644
  AC_MSG_CHECKING([whether to enable LZ4 compression])
  AC_ARG_ENABLE([lz4],
 diff --git a/md-convert b/md-convert
-index a48689a7..46543c38 100755
 --- ./md-convert
 +++ ./md-convert
 @@ -204,8 +204,6 @@ def find_man_substitutions():
