@@ -1,3 +1,58 @@
+# NEWS for rsync 3.3.0 (UNRELEASED)
+
+## Changes in this version:
+
+### BUG FIXES:
+
+- Fixed a bug with `--sparse --inplace` where a trailing gap in the source
+  file would not clear out the trailing data in the destination file.
+
+- Fixed an buffer overflow in the checksum2 code if SHA1 is being used for
+  the checksum2 algorithm.
+
+- Add a backtick to the list of characters that the filename quoting needs to
+  escape using backslashes.
+
+- Fixed a string-comparison issue in the internal file-list code that affected
+  tr_TR.utf-8.
+
+- Make sure that a local transfer marks the sender side as trusted.
+
+- Change the argv handling to work with a newer popt library -- one that likes
+  to free more data than it used to.
+
+- Rsync now calls `OpenSSL_add_all_algorithms()` when compiled against an older
+  openssl library.
+
+- Fixed a problem in the daemon auth for older protocols (29 and before) if the
+  openssl library is being used to compute md4 checksums.
+
+- Fixed `rsync -VV` on Cygwin -- it needed a flush of stdout.
+
+### ENHANCEMENTS:
+
+- Enhanced rrsync with the `-no-overwrite` option that allows you to ensure
+  that existing files on your restricted but writable directory can't be
+  modified.
+
+- Enhanced the manpages to mark links with .UR & .UE. If your nroff doesn't
+  support these idioms, touch the file `.md2man-force` in the source directory
+  so that `md-convert` gets called with the `--force-link-text` option, and
+  that should ensure that your manpages are still readable even with the
+  ignored markup.
+
+- Some manpage improvements on the handling of [global] modules.
+
+- Changed the mapfrom & mapto perl scripts (in the support dir) into a single
+  python script named idmap.  Converted a couple more perl scripts into python.
+
+### DEVELOPER RELATED:
+
+ - Updated config.guess (timestamp 2023-01-01) and config.sub (timestamp
+   2023-01-21).
+
+------------------------------------------------------------------------------
+
 # NEWS for rsync 3.2.7 (20 Oct 2022)
 
 ## Changes in this version:
@@ -50,7 +105,7 @@
 
 - The `--fuzzy` option was optimized a bit to try to cut down on the amount of
   computations when considering a big pool of files. The simple heuristic from
-  Kenneth Finnegan resuled in about a 2x speedup.
+  Kenneth Finnegan resulted in about a 2x speedup.
 
 - If rsync is forced to use protocol 29 or before (perhaps due to talking to an
   rsync before 3.0.0), the modify time of a file is limited to 4-bytes.  Rsync
@@ -4697,6 +4752,7 @@
 
 | RELEASE DATE | VER.   | DATE OF COMMIT\* | PROTOCOL    |
 |--------------|--------|------------------|-------------|
+| ?? May 2023  | 3.3.0  |                  | 31          |
 | 20 Oct 2022  | 3.2.7  |                  | 31          |
 | 09 Sep 2022  | 3.2.6  |                  | 31          |
 | 14 Aug 2022  | 3.2.5  |                  | 31          |

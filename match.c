@@ -3,7 +3,7 @@
  *
  * Copyright (C) 1996 Andrew Tridgell
  * Copyright (C) 1996 Paul Mackerras
- * Copyright (C) 2003-2022 Wayne Davison
+ * Copyright (C) 2003-2023 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -142,7 +142,7 @@ static void hash_search(int f,struct sum_struct *s,
 {
 	OFF_T offset, aligned_offset, end;
 	int32 k, want_i, aligned_i, backup;
-	char sum2[SUM_LENGTH];
+	char sum2[MAX_DIGEST_LEN];
 	uint32 s1, s2, sum;
 	int more;
 	schar *map;

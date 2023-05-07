@@ -245,7 +245,7 @@ to be copied to different destination directories using more than one copy.
 
 While a copy of a case-ignoring filesystem to a case-ignoring filesystem can
 work out fairly well, if no `--delete-during` or `--delete-before` option is
-active, rsync can potentially update an existing file on the receiveing side
+active, rsync can potentially update an existing file on the receiving side
 without noticing that the upper-/lower-case of the filename should be changed
 to match the sender.
 
@@ -1636,7 +1636,9 @@ expand it.
 0.  `--crtimes`, `-N,`
 
     This tells rsync to set the create times (newness) of the destination
-    files to the same value as the source files.
+    files to the same value as the source files. Your OS & filesystem must
+    support the setting of arbitrary creation (birth) times for this option
+    to be supported.
 
 0.  `--omit-dir-times`, `-O`
 

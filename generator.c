@@ -4,7 +4,7 @@
  * Copyright (C) 1996-2000 Andrew Tridgell
  * Copyright (C) 1996 Paul Mackerras
  * Copyright (C) 2002 Martin Pool <mbp@samba.org>
- * Copyright (C) 2003-2022 Wayne Davison
+ * Copyright (C) 2003-2023 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -783,7 +783,7 @@ static int generate_and_send_sums(int fd, OFF_T len, int f_out, int f_copy)
 	for (i = 0; i < sum.count; i++) {
 		int32 n1 = (int32)MIN(len, (OFF_T)sum.blength);
 		char *map = map_ptr(mapbuf, offset, n1);
-		char sum2[SUM_LENGTH];
+		char sum2[MAX_DIGEST_LEN];
 		uint32 sum1;
 
 		len -= n1;
